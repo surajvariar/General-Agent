@@ -1,0 +1,12 @@
+[project]
+name = "general-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "deepagents>=0.4.4",
+    "dotenv>=0.9.9",
+    "langchain-ollama>=1.0.1",
+    "streamlit>=1.54.0",
+]
