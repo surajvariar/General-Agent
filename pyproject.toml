@@ -9,4 +9,5 @@ dependencies = [
     "dotenv>=0.9.9",
     "langchain-ollama>=1.0.1",
     "streamlit>=1.54.0",
+    "tavily-python>=0.7.22",
 ]
