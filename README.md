@@ -53,11 +53,7 @@ The project requires Python 3.13 or higher and the following packages:
 
 2. **Install dependencies:**
    ```bash
-   pip install -e .
-   ```
-   Or install manually:
-   ```bash
-   pip install deepagents>=0.4.4 dotenv>=0.9.9 langchain-ollama>=1.0.1 streamlit>=1.54.0 tavily-python>=0.7.22
+   uv sync
    ```
 
 3. **Set up environment variables:**
@@ -138,7 +134,6 @@ General-Agent/
 
 - "Research the latest developments in AI and summarize them"
 - "What are the best practices for machine learning model deployment?"
-- "Find information about renewable energy trends in 2025"
 
 ---
 
