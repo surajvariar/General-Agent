@@ -23,7 +23,7 @@ def store_conversation_history(session_id:str,chat_data: dict[str, str]):
     try:
         with open(PATH, "r") as f:
             chat_history = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except Exception as e:
         print("Skipping and continuing")
     if chat_history.get(session_id):
         chat_history[session_id]["messages"]=chat_data
@@ -43,7 +43,7 @@ def fetch_conversation_history(session_id:str)->dict[str,str]:
             chat_data=json.load(f)
             if chat_data.get(session_id):
                 chat_history=chat_data[session_id]
-    except json.JSONDecodeError:
+    except Exception as e:
         return {}
     return chat_history
 
@@ -62,7 +62,6 @@ def generate_chat_title(messages: list[dict]) -> str:
         title = res.content.strip().removeprefix("Title:").strip('"“”')
         return title or "Chat"
     except Exception as e:
-        print(e)
         return "Chat"
 @st.cache_data(ttl=None)
 def load_all_sessions()->list[str]:
@@ -72,14 +71,17 @@ def load_all_sessions()->list[str]:
             chat_history:dict=json.load(f)
             sessions=chat_history.keys()
             session_ids=[id for id in sessions]
-    except FileExistsError:
+    except Exception as e:
         return session_ids
     return session_ids
 
 def delete_session(session_id):
-    with open(PATH,"r") as f:
-        chat_data:dict=json.load(f)
-    chat_data.pop(session_id)
-    
-    with open(PATH,"w")as f:
-        json.dump(chat_data,f,indent=5)
+    try:
+        with open(PATH,"r") as f:
+            chat_data:dict=json.load(f)
+        chat_data.pop(session_id)
+        
+        with open(PATH,"w")as f:
+            json.dump(chat_data,f,indent=5)
+    except Exception as e:
+        raise e
