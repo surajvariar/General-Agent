@@ -2,6 +2,9 @@ from deepagents import create_deep_agent
 from langchain_ollama import ChatOllama
 from agent.tools import internet_search
 from langchain.agents.middleware import ToolCallLimitMiddleware
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+from langgraph.store.memory import InMemoryStore
+from langgraph.checkpoint.memory import MemorySaver
 from dotenv import load_dotenv
 
 load_dotenv(verbose=True)
@@ -14,12 +17,32 @@ class Agents:
         self.temp=temp
         self.SYSTEM_INSTRUCTIONS = """You are an expert researcher. Your job is to conduct thorough research and then write a polished report.
 
-You have access to an internet search tool as your primary means of gathering information.
+## Tools Available
 
-## `internet_search`
+### `internet_search`
+Run web searches. Use for gathering information. Specify `max_results`, `topic` ("general", "news", "finance"), and `include_raw_content`.
 
-Use this to run an internet search for a given query. You can specify the max number of results to return, the topic, and whether raw content should be included.
-"""
+### Filesystem Tools (use actively for large outputs)
+- `ls`: List files
+- `read_file`: Read file content  
+- `write_file`: Save research/notes
+- `edit_file`: Update existing files
+
+**Storage guide:**
+- **Ephemeral** (current session): `/notes.txt`, `/research/`, `/workspace/`
+- **Persistent** (across conversations): `/memories/user-preferences.txt`, `/memories/research-summary.txt`
+
+### Planning
+Use `write_todos` to break down complex research into steps.
+
+## Research Process
+1. Plan with `write_todos`
+2. Search with `internet_search` 
+3. Save large results: `write_file("/notes/search-results.txt", ...)` 
+4. Analyze and synthesize in `/workspace/report.md`
+5. Save key findings: `write_file("/memories/[topic]-summary.txt", ...)` for future reference
+
+Write concise, structured final reports."""
 
     def config_agent(self):
         self.agent = create_deep_agent(
@@ -36,6 +59,17 @@ Use this to run an internet search for a given query. You can specify the max nu
                     run_limit=3,
                 ),
             ],
+            backend=self.make_backend,
+            store=InMemoryStore(),
+            checkpointer=MemorySaver()
+        )
+    
+    def make_backend(self,runtime):
+        return CompositeBackend(
+            default=StateBackend(runtime),
+            routes={
+                "/memories/": StoreBackend(runtime)
+            }
         )
 
     def _init_model(self):

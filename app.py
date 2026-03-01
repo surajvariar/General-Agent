@@ -2,6 +2,10 @@ import streamlit as st
 from agent.deep_agent import Agents
 from utils.util import fetch_supported_models, store_conversation_history,generate_session_id,load_all_sessions,fetch_conversation_history,delete_session
 
+@st.cache_resource(show_spinner="Initializing agent…")
+def get_agent(model_name: str):
+    agent_instance = Agents(model_name=model_name)
+    return agent_instance.get_agent()
 
 st.set_page_config(page_title="Chat", page_icon="💬")
 st.title("💬 Chat")
@@ -33,23 +37,29 @@ with st.sidebar:
         st.session_state.session_id = generate_session_id()
         st.session_state.messages = []
         load_all_sessions.clear()
-        st.session_state.sessions=[st.session_state.session_id]+load_all_sessions()
+        # st.session_state.sessions=[st.session_state.session_id]+load_all_sessions()
         st.rerun()
 
     st.divider()
     st.subheader("🕑 Chat History")
-    sessions=st.session_state.sessions
+    load_all_sessions.clear()                     # invalidate cache
+    sessions = load_all_sessions()        # get fresh list
+    st.session_state.sessions = sessions
+    # sessions=st.session_state.sessions
     if not sessions:
         st.caption("No past conversations yet.")
     else:
         for session in sessions:
             col1,col2=st.columns([5,1])
             with col1:
-                label=fetch_conversation_history(session).get("title","Untitled")
+                history = fetch_conversation_history(session)
+                if not history or not isinstance(history, dict):
+                    continue
+                label=history.get("title","Untitled")
                 button_type = "primary" if session == st.session_state.session_id else "secondary"
                 if st.button(label, key=f"load_{session}", type=button_type, use_container_width=True):
                     st.session_state.session_id = session
-                    st.session_state.messages = fetch_conversation_history(session).get("messages")
+                    st.session_state.messages = history.get("messages")
                     st.rerun()
             with col2:
                 if st.button("🗑", key=f"del_{session}"):
@@ -58,7 +68,7 @@ with st.sidebar:
                     if session == st.session_state.session_id:
                         st.session_state.session_id = generate_session_id()
                         st.session_state.messages = []
-                        load_all_sessions.clear()
+                        # load_all_sessions.clear()
                     st.rerun() 
 
 for msg in st.session_state.messages:
@@ -70,9 +80,7 @@ if prompt := st.chat_input("Say something..."):
     with st.chat_message("user"):
         st.write(prompt)
 
-    model_name = st.session_state.model_choice
-    agent_instance = Agents(model_name=model_name)
-    agent = agent_instance.get_agent()
+    agent = get_agent(st.session_state.model_choice)
 
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
@@ -81,6 +89,7 @@ if prompt := st.chat_input("Say something..."):
     with st.status("Thinking...",expanded=False) as status:
         for namespace, chunk in agent.stream(
             {"messages": [{"role": "user", "content": prompt}]},
+            { "configurable": { "thread_id": st.session_state.session_id } },
             stream_mode="updates",
             subgraphs=True,
         ):

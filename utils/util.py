@@ -79,7 +79,8 @@ def delete_session(session_id):
     try:
         with open(PATH,"r") as f:
             chat_data:dict=json.load(f)
-        chat_data.pop(session_id)
+        if session_id in chat_data.keys():
+            chat_data.pop(session_id)
         
         with open(PATH,"w")as f:
             json.dump(chat_data,f,indent=5)
