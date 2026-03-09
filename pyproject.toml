@@ -8,6 +8,7 @@ dependencies = [
     "deepagents>=0.4.4",
     "dotenv>=0.9.9",
     "langchain-ollama>=1.0.1",
+    "langchain-openai>=1.1.10",
     "streamlit>=1.54.0",
     "tavily-python>=0.7.22",
 ]
