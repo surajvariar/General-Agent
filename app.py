@@ -1,6 +1,6 @@
 import streamlit as st
 from agent.deep_agent import Agents
-from utils.util import fetch_supported_models, store_conversation_history,generate_session_id,load_all_sessions,fetch_conversation_history,delete_session
+from utils.util import fetch_supported_models, store_conversation_history,generate_session_id,load_all_sessions,delete_session
 
 @st.cache_resource(show_spinner="Initializing agent…")
 def get_agent(model_name: str):
@@ -20,52 +20,47 @@ if "sessions" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-_default_model = "gpt-oss:120b"
-if _default_model not in st.session_state.supported_models:
-    st.session_state.supported_models.insert(0, _default_model)
 
 if "model_choice" not in st.session_state:
-    st.session_state.model_choice = _default_model
+    st.session_state.model_choice =""
 
 with st.sidebar:
     st.session_state.model_choice = st.selectbox(
         "Model",
         st.session_state.supported_models,
-        index=st.session_state.supported_models.index(_default_model),
     )
     if st.button("➕ New Chat"):
         st.session_state.session_id = generate_session_id()
         st.session_state.messages = []
+        store_conversation_history(st.session_state.session_id,[])
         load_all_sessions.clear()
-        # st.session_state.sessions=[st.session_state.session_id]+load_all_sessions()
         st.rerun()
 
     st.divider()
     st.subheader("🕑 Chat History")
-    load_all_sessions.clear()                     # invalidate cache
-    sessions = load_all_sessions()        # get fresh list
+    load_all_sessions.clear()
+    sessions = load_all_sessions()
     st.session_state.sessions = sessions
-    # sessions=st.session_state.sessions
     if not sessions:
         st.caption("No past conversations yet.")
     else:
-        for session in sessions:
+        for session_id in sessions.keys():
             col1,col2=st.columns([5,1])
             with col1:
-                history = fetch_conversation_history(session)
+                history = sessions[session_id]
                 if not history or not isinstance(history, dict):
                     continue
                 label=history.get("title","Untitled")
-                button_type = "primary" if session == st.session_state.session_id else "secondary"
-                if st.button(label, key=f"load_{session}", type=button_type, use_container_width=True):
-                    st.session_state.session_id = session
+                button_type = "primary" if session_id == st.session_state.session_id else "secondary"
+                if st.button(label, key=f"load_{session_id}", type=button_type, use_container_width=True):
+                    st.session_state.session_id = session_id
                     st.session_state.messages = history.get("messages")
                     st.rerun()
             with col2:
-                if st.button("🗑", key=f"del_{session}"):
-                    delete_session(session)
+                if st.button("🗑", key=f"del_{session_id}"):
+                    delete_session(session_id)
                     # If deleting the active session, start fresh
-                    if session == st.session_state.session_id:
+                    if session_id == st.session_state.session_id:
                         st.session_state.session_id = generate_session_id()
                         st.session_state.messages = []
                         # load_all_sessions.clear()
