@@ -4,21 +4,31 @@ import os
 import uuid
 from datetime import datetime
 import streamlit as st
+from huggingface_hub import HfApi
+from models.settings import settings
 
 OLLAMA_MODEL_API="https://ollama.com/api/tags"
 PATH=os.path.join(os.getcwd(),"conversation.json")  
 
 def fetch_supported_models()->list[str]:
     supported_models=[]
-    if os.getenv("OLLAMA_API_KEY"):
-        response=requests.get(OLLAMA_MODEL_API)
-        if response.status_code!=200:
-            return supported_models
-        else:
-            models_data=response.json()
-            supported_models=[model.get("name") for model in models_data.get("models",[]) if model.get("name","")!="" ]
-    elif os.getenv("OPENAI_API_KEY"):
-        supported_models=["nvidia/nemotron-3-super-120b-a12b:free"]
+    try:
+        if settings.OLLAMA_API_KEY:
+            response=requests.get(OLLAMA_MODEL_API)
+            if response.status_code!=200:
+                return supported_models
+            else:
+                models_data=response.json()
+                supported_models=[model.get("name") for model in models_data.get("models",[]) if model.get("name","")!="" ]
+        if settings.OPENAI_API_KEY:
+            supported_models=["nvidia/nemotron-3-super-120b-a12b:free"]
+        if settings.HUGGINGFACEHUB_API_TOKEN:
+            api = HfApi()
+            models = api.list_models(sort="trending_score",limit=20,inference_provider="all")
+            supported_models = [model.id for model in models]
+    except Exception as e:
+        print(e)
+        supported_models=[]
     return supported_models
 
 def _generate_title_from_first_ai_response(messages: list) -> str:

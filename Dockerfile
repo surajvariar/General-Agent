@@ -25,7 +25,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser
 
 # Copy application code (do this last to maximize cache)
-COPY . .
+COPY src/ .
 
 # Expose Streamlit's default port
 EXPOSE 8501

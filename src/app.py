@@ -222,7 +222,7 @@ async def main() -> None:
         # Refresh session data immediately after storing
         load_all_sessions.clear()
         st.session_state.sessions = load_all_sessions_uncached()
-        st.rerun()
+        # st.rerun()
 
 if __name__ == "__main__":
     asyncio.run(main())
