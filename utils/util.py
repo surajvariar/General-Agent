@@ -18,25 +18,40 @@ def fetch_supported_models()->list[str]:
             models_data=response.json()
             supported_models=[model.get("name") for model in models_data.get("models",[]) if model.get("name","")!="" ]
     elif os.getenv("OPENAI_API_KEY"):
-        supported_models=["nvidia/nemotron-3-nano-30b-a3b:free","qwen/qwen3-vl-30b-a3b-thinking","qwen/qwen3-vl-235b-a22b-thinking","qwen/qwen3-next-80b-a3b-instruct:free","openai/gpt-oss-120b:free","openai/gpt-oss-20b:free","qwen/qwen3-235b-a22b-thinking-2507","qwen/qwen3-coder:free","google/gemma-3n-e2b-it:free","google/gemma-3n-e4b-it:free","qwen/qwen3-4b:free","mistralai/mistral-small-3.1-24b-instruct:free","meta-llama/llama-3.3-70b-instruct:free","meta-llama/llama-3.2-3b-instruct:free","nousresearch/hermes-3-llama-3.1-405b:free"]
+        supported_models=["nvidia/nemotron-3-super-120b-a12b:free"]
     return supported_models
 
 def _generate_title_from_first_ai_response(messages: list) -> str:
+    """
+    Generate a title from the first AI response in the conversation.
+    If no AI response exists yet, generate a title from the first user message.
+    """
     if not messages or not isinstance(messages, list):
-        return "Untitled"
-    first_ai_response = None
+        return "New Conversation"
+    
+    # Try to find the first AI response
     for msg in messages:
         if isinstance(msg, dict) and msg.get("role") == "assistant" and msg.get("content"):
             first_ai_response = msg.get("content", "").strip()
-            break
-    if not first_ai_response:
-        return "Untitled"
-    words = first_ai_response.split()
+            if first_ai_response:
+                words = first_ai_response.split()
+                if len(words) <= 10:
+                    return " ".join(words)
+                else:
+                    return " ".join(words[:10]) + "..."
     
-    if len(words) <= 10:
-        return " ".join(words)
-    else:
-        return " ".join(words[:10]) + "..."
+    # If no AI response, try to use the first user message
+    for msg in messages:
+        if isinstance(msg, dict) and msg.get("role") == "user" and msg.get("content"):
+            first_user_message = msg.get("content", "").strip()
+            if first_user_message:
+                words = first_user_message.split()
+                if len(words) <= 5:
+                    return " ".join(words)
+                else:
+                    return " ".join(words[:5]) + "..."
+    
+    return "New Conversation"
 
 
 def store_conversation_history(session_id: str, chat_data: list):
@@ -61,18 +76,25 @@ def store_conversation_history(session_id: str, chat_data: list):
         chat_history = {}
     current_timestamp = datetime.now().isoformat()
     
+    # Always update the conversation data
+    title = _generate_title_from_first_ai_response(chat_data)
     if session_id not in chat_history:
-        title = _generate_title_from_first_ai_response(chat_data)
         chat_history[session_id] = {
             "title": title,
             "messages": chat_data,
             "updated_at": current_timestamp
         }
     else:
-        if chat_history[session_id].get("title") == "Untitled" or not chat_history[session_id].get("title"):
-            chat_history[session_id]["title"] = _generate_title_from_first_ai_response(chat_data)
+        # Update title if it's a better one or if the previous was generic
+        old_title = chat_history[session_id].get("title", "")
+        if old_title in ["Untitled", "New Conversation"] and title not in ["Untitled", "New Conversation"]:
+            chat_history[session_id]["title"] = title
+        elif not old_title:
+            chat_history[session_id]["title"] = title
+            
         chat_history[session_id]["messages"] = chat_data
         chat_history[session_id]["updated_at"] = current_timestamp
+        
     try:
         with open(PATH, "w") as f:
             json.dump(chat_history, f, indent=4)
@@ -86,6 +108,23 @@ def generate_session_id()->str:
 @st.cache_data(ttl=None)
 def load_all_sessions()->dict:
     """Load all sessions and return sorted by updated_at in descending order."""
+    chat_history:dict={}
+    try:
+        with open(PATH,"r") as f:
+            chat_history=json.load(f)
+    except Exception as e:
+        return chat_history
+    
+    sorted_history = dict(sorted(
+        chat_history.items(),
+        key=lambda item: item[1].get("updated_at", ""),
+        reverse=True
+    ))
+    
+    return sorted_history
+
+def load_all_sessions_uncached()->dict:
+    """Load all sessions without caching - for immediate updates."""
     chat_history:dict={}
     try:
         with open(PATH,"r") as f:
