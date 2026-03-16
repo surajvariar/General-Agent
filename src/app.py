@@ -2,11 +2,20 @@ import asyncio
 import streamlit as st
 from agent.deep_agent import Agents
 from utils.util import fetch_supported_models, store_conversation_history,generate_session_id,load_all_sessions,load_all_sessions_uncached,delete_session
+def get_or_create_event_loop():
+    """Get existing loop or create one — needed outside Streamlit's async context."""
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
 
 # Cache the agent initialization
 @st.cache_resource(show_spinner="Initializing agent…")
 def get_agent(model_name: str):
-    agent_instance = Agents(model_name=model_name)
+    loop = get_or_create_event_loop()
+    agent_instance = loop.run_until_complete(Agents.create(model_name=model_name))
     return agent_instance.get_agent()
 
 def initialize_session_state():
@@ -137,13 +146,13 @@ def process_other_nodes(data, agent_label, node_name):
         else:
             st.write("State update:", messages)
 
-def handle_agent_streaming(agent, prompt, response_placeholder):
+async def handle_agent_streaming(agent, prompt, response_placeholder):
     """Handle the agent streaming response and update UI accordingly"""
     ai_response = ""
     
     with st.status("Thinking...", expanded=False) as status:
         # Stream the agent's response
-        for namespace, chunk in agent.stream(
+        async for namespace, chunk in agent.astream(
             {"messages": [{"role": "user", "content": prompt}]},
             {"configurable": {"thread_id": st.session_state.session_id}},
             stream_mode="updates",
@@ -191,9 +200,9 @@ def handle_agent_streaming(agent, prompt, response_placeholder):
     
     return ai_response
 
-async def main() -> None:
+def main() -> None:
     st.set_page_config(page_title="Chat", page_icon="💬")
-    
+    st.title("💬 Chat")
     initialize_session_state()
     render_sidebar()
 
@@ -212,7 +221,8 @@ async def main() -> None:
             response_placeholder = st.empty()
             
         # Handle agent streaming response
-        ai_response = handle_agent_streaming(agent, prompt, response_placeholder)
+        loop=get_or_create_event_loop()
+        ai_response = loop.run_until_complete(handle_agent_streaming(agent, prompt, response_placeholder))
         
         if ai_response:
             response_placeholder.write(ai_response)
@@ -225,4 +235,4 @@ async def main() -> None:
         # st.rerun()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     OLLAMA_API_KEY: SecretStr | None = None
     OPENAI_API_KEY: SecretStr | None = None
     HUGGINGFACEHUB_API_TOKEN: SecretStr | None = None
+    TAVILY_API_KEY: SecretStr | None = None
     BASE_URL: str | None = None
 
 

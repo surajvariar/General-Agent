@@ -1,74 +1,47 @@
 from deepagents import create_deep_agent
-from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
-from agent.tools import internet_search
-from langchain.agents.middleware import ToolCallLimitMiddleware
+from agent.tools import get_tavily_mcp, think_tool
+from langchain.agents.middleware import ToolCallLimitMiddleware, ToolRetryMiddleware
 from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 from langgraph.store.memory import InMemoryStore
 from langgraph.checkpoint.memory import MemorySaver
-from dotenv import load_dotenv
 from models.provider import ModelProvider
-import os
-load_dotenv(verbose=True)
+from prompts.system_prompts import *
 
 
 class Agents:
-    def __init__(self, model_name: str,temp:int=0.5):
-        self.provider=ModelProvider(model_name,temp)
-        self.SYSTEM_INSTRUCTIONS = """You are an expert researcher. Your job is to conduct thorough research and then write a polished report.
+    def __init__(self, model_name: str, temp: int = 0.5):
+        self.provider = ModelProvider(model_name, temp)
+        self.SYSTEM_INSTRUCTIONS = MAIN_AGENT_PROMPT
+        self.tavily_tools = None
 
-## Tools Available
-
-### `internet_search`
-Run web searches. Use for gathering information. Specify `max_results`, `topic` ("general", "news", "finance"), and `include_raw_content`.
-
-### Filesystem Tools (use actively for large outputs)
-- `ls`: List files
-- `read_file`: Read file content  
-- `write_file`: Save research/notes
-- `edit_file`: Update existing files
-
-**Storage guide:**
-- **Ephemeral** (current session): `/notes.txt`, `/research/`, `/workspace/`
-- **Persistent** (across conversations): `/memories/user-preferences.txt`, `/memories/research-summary.txt`
-
-### Planning
-Use `write_todos` to break down complex research into steps.
-
-## Research Process
-1. Plan with `write_todos`
-2. Search with `internet_search` 
-3. Save large results: `write_file("/notes/search-results.txt", ...)` 
-4. Analyze and synthesize in `/workspace/report.md`
-5. Save key findings: `write_file("/memories/[topic]-summary.txt", ...)` for future reference
-
-Write concise, structured final reports."""
+    @classmethod
+    async def create(cls, model_name: str, temp: int = 0.5):
+        instance = cls(model_name, temp)
+        instance.tavily_tools = await get_tavily_mcp()
+        return instance
 
     def get_agent(self):
+
         agent = create_deep_agent(
             model=self.provider.get_provider_instance(),
-            tools=[internet_search],
+            tools=[*self.tavily_tools, think_tool],
             system_prompt=self.SYSTEM_INSTRUCTIONS,
             middleware=[
                 # Global limit
                 ToolCallLimitMiddleware(thread_limit=20, run_limit=10),
-                # Tool-specific limit
-                ToolCallLimitMiddleware(
-                    tool_name="internet_search",
-                    thread_limit=5,
-                    run_limit=3,
+                ToolRetryMiddleware(
+                    max_retries=3,
+                    backoff_factor=2.0,
+                    initial_delay=1.0,
                 ),
             ],
             backend=self.make_backend,
             store=InMemoryStore(),
-            checkpointer=MemorySaver()
+            checkpointer=MemorySaver(),
         )
         return agent
-    
-    def make_backend(self,runtime):
+
+    def make_backend(self, runtime):
         return CompositeBackend(
-            default=StateBackend(runtime),
-            routes={
-                "/memories/": StoreBackend(runtime)
-            }
+            default=StateBackend(runtime), routes={"/memories/": StoreBackend(runtime)}
         )

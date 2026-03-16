@@ -13,17 +13,24 @@ class ModelProvider:
     def get_provider_instance(self):
         if settings.OPENAI_API_KEY:
             provider = ChatOpenAI(
-                model=self.model_name, base_url=self.BASE_URL, temperature=self.temp
+                model=self.model_name,
+                base_url=self.BASE_URL,
+                temperature=self.temp,
+                api_key=settings.OPENAI_API_KEY.get_secret_value(),
             )
         if settings.OLLAMA_API_KEY:
             provider = ChatOllama(
-                model=self.model_name, base_url=self.BASE_URL, temperature=self.temp
+                model=self.model_name,
+                base_url=self.BASE_URL,
+                temperature=self.temp,
+                client_kwargs={"headers": {"Authorization": f"Bearer {settings.OLLAMA_API_KEY.get_secret_value()}"}},
             )
         if settings.HUGGINGFACEHUB_API_TOKEN:
             llm = HuggingFaceEndpoint(
                 repo_id=self.model_name,
-                temperature=self.temp
+                temperature=self.temp,
+                huggingfacehub_api_token=settings.HUGGINGFACEHUB_API_TOKEN.get_secret_value(),
             )
-            provider=ChatHuggingFace(llm=llm)
+            provider = ChatHuggingFace(llm=llm)
 
         return provider
