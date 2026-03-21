@@ -21,7 +21,7 @@ def fetch_supported_models()->list[str]:
                 models_data=response.json()
                 supported_models=[model.get("name") for model in models_data.get("models",[]) if model.get("name","")!="" ]
         if settings.OPENAI_API_KEY:
-            supported_models=["nvidia/nemotron-3-super-120b-a12b:free"]
+            supported_models=settings.OPEN_ROUTER_MODELS
         if settings.HUGGINGFACEHUB_API_TOKEN:
             api = HfApi()
             models = api.list_models(sort="trending_score",limit=20,inference_provider="all")

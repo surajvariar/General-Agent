@@ -17,6 +17,7 @@ class ModelProvider:
                 base_url=self.BASE_URL,
                 temperature=self.temp,
                 api_key=settings.OPENAI_API_KEY.get_secret_value(),
+                stream_usage=True,
             )
         if settings.OLLAMA_API_KEY:
             provider = ChatOllama(
