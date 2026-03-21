@@ -1,4 +1,3 @@
-from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import find_dotenv
 from pydantic import SecretStr
@@ -15,7 +14,7 @@ class Settings(BaseSettings):
     )
     OLLAMA_API_KEY: SecretStr | None = None
     OPENAI_API_KEY: SecretStr | None = None
-    OPEN_ROUTER_MODELS: List[str] | None = []
+    OPEN_ROUTER_MODELS: list[str] | None = []
     HUGGINGFACEHUB_API_TOKEN: SecretStr | None = None
     TAVILY_API_KEY: SecretStr | None = None
     BASE_URL: str | None = None
